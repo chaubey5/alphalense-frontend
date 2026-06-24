@@ -18,6 +18,26 @@ const PRICE_MARGIN = { top: 6, right: 8, bottom: 0, left: 0 };
 function compactTick(value) { return fmtNum(value, { compact: true }); }
 function compactCurrencyTip(value) { return fmtNum(value, { compact: true, currency: true }); }
 
+function buildOverviewStats(profile) {
+  const candidates = [
+    { label: "Market Cap", value: fmtNum(profile.marketCap, { compact: true, currency: true }), priority: 1 },
+    { label: "Sector",     value: profile.sector,    priority: 2, small: true },
+    { label: "Industry",   value: profile.industry,  priority: 3, small: true },
+    { label: "Country",    value: profile.country,   priority: 4, small: true },
+    { label: "Exchange",   value: profile.exchange,  priority: 5, small: true },
+    { label: "Currency",   value: profile.currency,  priority: 6, small: true },
+    { label: "IPO",        value: profile.ipoDate,   priority: 7, small: true },
+    { label: "Beta",       value: profile.beta ? Number(profile.beta).toFixed(2) : null, priority: 8, small: true },
+    { label: "Employees",  value: profile.employees ? profile.employees.toLocaleString() : null, priority: 9, small: true },
+    { label: "CEO",        value: profile.ceo || null, priority: 10, small: true },
+    { label: "Website",    value: profile.website ? profile.website.replace(/^https?:\/\//, "") : null, priority: 11, small: true },
+  ];
+  return candidates
+    .filter((c) => c.value && c.value !== "—")
+    .sort((a, b) => a.priority - b.priority)
+    .slice(0, 8);
+}
+
 export function OverviewCard({ profile }) {
   return (
     <GlassCard eyebrow="// company" title="Overview" className="lg:col-span-2" testId="overview-card">
@@ -27,14 +47,9 @@ export function OverviewCard({ profile }) {
             {profile.description || "No description available."}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <Stat label="Market Cap" value={fmtNum(profile.marketCap, { compact: true, currency: true })} />
-            <Stat label="Sector"     value={profile.sector || "—"} small />
-            <Stat label="Industry"   value={profile.industry || "—"} small />
-            <Stat label="Country"    value={profile.country || "—"} small />
-            <Stat label="Employees"  value={profile.employees ? profile.employees.toLocaleString() : "—"} small />
-            <Stat label="CEO"        value={profile.ceo || "—"} small />
-            <Stat label="IPO"        value={profile.ipoDate || "—"} small />
-            <Stat label="Beta"       value={profile.beta ? Number(profile.beta).toFixed(2) : "—"} small />
+            {buildOverviewStats(profile).map((s) => (
+              <Stat key={s.label} label={s.label} value={s.value} small={s.small} />
+            ))}
           </div>
         </>
       ) : <Skeleton lines={6} />}

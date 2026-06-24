@@ -152,11 +152,68 @@ async def get_quote(ticker: str) -> Optional[Dict[str, Any]]:
 
 
 # ---------------- Profile ----------------
+def _safe_float(v):
+    try:
+        return float(v) if v not in (None, "", "None") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(v):
+    try:
+        return int(v) if v not in (None, "", "None") else None
+    except (TypeError, ValueError):
+        return None
+
+
+async def _av_overview(ticker: str) -> Dict[str, Any]:
+    data = await _get(AV_BASE, {"function": "OVERVIEW", "symbol": ticker, "apikey": AV_KEY})
+    if isinstance(data, dict) and data.get("Symbol"):
+        return data
+    return {}
+
+
+def _merge_profile(base: Dict[str, Any], av: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill missing fields in `base` from Alpha Vantage OVERVIEW output."""
+    if not av:
+        return base
+    out = dict(base)
+    out.setdefault("name", av.get("Name"))
+    if not out.get("description"):
+        out["description"] = av.get("Description") or out.get("description")
+    if not out.get("sector"):
+        out["sector"] = (av.get("Sector") or "").title() or out.get("sector")
+    if not out.get("industry"):
+        out["industry"] = (av.get("Industry") or "").title() or out.get("industry")
+    if not out.get("country"):
+        out["country"] = av.get("Country")
+    if not out.get("website"):
+        out["website"] = av.get("OfficialSite")
+    if not out.get("employees"):
+        out["employees"] = _safe_int(av.get("FullTimeEmployees"))
+    if not out.get("beta"):
+        out["beta"] = _safe_float(av.get("Beta"))
+    if not out.get("marketCap"):
+        out["marketCap"] = _safe_float(av.get("MarketCapitalization"))
+    if not out.get("currency"):
+        out["currency"] = av.get("Currency")
+    if not out.get("exchange"):
+        out["exchange"] = av.get("Exchange")
+    return out
+
+
+def _profile_complete(p: Dict[str, Any]) -> bool:
+    """A 'good enough' profile has CEO, employees, beta, and description."""
+    return bool(p.get("ceo") and p.get("employees") and p.get("beta") and p.get("description"))
+
+
 async def get_profile(ticker: str) -> Optional[Dict[str, Any]]:
+    base: Dict[str, Any] = {}
+
     data = await _get(f"{FMP}/profile", {"symbol": ticker, "apikey": FMP_KEY})
     if isinstance(data, list) and data:
         p = data[0]
-        return {
+        base = {
             "ticker": p.get("symbol"), "name": p.get("companyName"),
             "sector": p.get("sector"), "industry": p.get("industry"),
             "ceo": p.get("ceo"), "country": p.get("country"),
@@ -166,22 +223,33 @@ async def get_profile(ticker: str) -> Optional[Dict[str, Any]]:
             "beta": p.get("beta"), "currency": p.get("currency"),
             "exchange": p.get("exchange"), "source": "fmp",
         }
-    fh = await _get(f"{FINNHUB_BASE}/stock/profile2",
-                    {"symbol": ticker, "token": FINNHUB_KEY})
-    if isinstance(fh, dict) and fh.get("name"):
-        return {
-            "ticker": ticker, "name": fh.get("name"),
-            "sector": fh.get("finnhubIndustry"),
-            "industry": fh.get("finnhubIndustry"),
-            "ceo": "", "country": fh.get("country"),
-            "website": fh.get("weburl"), "description": "",
-            "employees": None, "ipoDate": fh.get("ipo"),
-            "image": fh.get("logo"),
-            "marketCap": (fh.get("marketCapitalization") or 0) * 1_000_000 if fh.get("marketCapitalization") else None,
-            "beta": None, "currency": fh.get("currency"),
-            "exchange": fh.get("exchange"), "source": "finnhub",
-        }
-    return None
+    else:
+        fh = await _get(f"{FINNHUB_BASE}/stock/profile2",
+                        {"symbol": ticker, "token": FINNHUB_KEY})
+        if isinstance(fh, dict) and fh.get("name"):
+            base = {
+                "ticker": ticker, "name": fh.get("name"),
+                "sector": fh.get("finnhubIndustry"),
+                "industry": fh.get("finnhubIndustry"),
+                "ceo": "", "country": fh.get("country"),
+                "website": fh.get("weburl"), "description": "",
+                "employees": None, "ipoDate": fh.get("ipo"),
+                "image": fh.get("logo"),
+                "marketCap": (fh.get("marketCapitalization") or 0) * 1_000_000
+                              if fh.get("marketCapitalization") else None,
+                "beta": None, "currency": fh.get("currency"),
+                "exchange": fh.get("exchange"), "source": "finnhub",
+            }
+
+    if not base:
+        return None
+
+    # Enrich any missing core fields (Beta, employees, description, …) from AV OVERVIEW.
+    if not _profile_complete(base):
+        av = await _av_overview(ticker)
+        base = _merge_profile(base, av)
+
+    return base
 
 
 # ---------------- Financials ----------------
