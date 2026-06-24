@@ -182,16 +182,22 @@ export function MacroCard({ macro }) {
 const ANALYST_BUCKETS = ["strongBuy", "buy", "hold", "sell", "strongSell"];
 
 export function AnalystCard({ analyst }) {
+  const hasTargets = analyst && (analyst.targetConsensus || analyst.targetHigh || analyst.targetLow);
+  const hasRatings = analyst && (analyst.strongBuy ?? null) !== null;
   return (
     <GlassCard eyebrow="// the street" title="Analyst consensus" testId="analyst-card">
       {analyst ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <Stat label="Target low"  value={fmtNum(analyst.targetLow,       { currency: true })} small />
-            <Stat label="Consensus"   value={fmtNum(analyst.targetConsensus, { currency: true })} small />
-            <Stat label="Target high" value={fmtNum(analyst.targetHigh,      { currency: true })} small />
-          </div>
-          {(analyst.strongBuy ?? null) !== null && (
+          {hasTargets ? (
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Target low"  value={fmtNum(analyst.targetLow,       { currency: true })} small />
+              <Stat label="Consensus"   value={fmtNum(analyst.targetConsensus, { currency: true })} small />
+              <Stat label="Target high" value={fmtNum(analyst.targetHigh,      { currency: true })} small />
+            </div>
+          ) : (
+            <div className="text-xs text-[var(--text-faint)]">Price targets not available on this data tier.</div>
+          )}
+          {hasRatings && (
             <div className="flex items-center gap-2 flex-wrap">
               {ANALYST_BUCKETS.map((bucket) => (
                 <div key={bucket} className="text-xs font-mono px-3 py-1 rounded-full border border-[var(--border)]">
