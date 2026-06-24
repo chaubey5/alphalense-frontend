@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="16" time="71.715" timestamp="2026-06-24T06:06:49.145807+00:00" hostname="agent-env-854fd0bb-6a10-4b7d-a953-360292b30865"><testcase classname="backend.tests.test_alphalens_api.TestHealth" name="test_root" time="10.198"><failure message="requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='multi-api-stack.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)">/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:534: in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:571: in getresponse
+    httplib_response = super().getresponse()
+                       ^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/http/client.py:1415: in getresponse
+    response.begin()
+/usr/local/lib/python3.11/http/client.py:330: in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/http/client.py:291: in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/socket.py:718: in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/ssl.py:1314: in recv_into
+    return self.read(nbytes, buffer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/ssl.py:1166: in read
+    return self._sslobj.read(len, buffer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TimeoutError: The read operation timed out
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:696: in send
+    resp = conn.urlopen(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:842: in urlopen
+    retries = retries.increment(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/retry.py:498: in increment
+    raise reraise(type(error), error, _stacktrace)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/util/util.py:39: in reraise
+    raise value
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:788: in urlopen
+    response = self._make_request(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:536: in _make_request
+    self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:367: in _raise_timeout
+    raise ReadTimeoutError(
+E   urllib3.exceptions.ReadTimeoutError: HTTPSConnectionPool(host='multi-api-stack.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)
+
+During handling of the above exception, another exception occurred:
+backend/tests/test_alphalens_api.py:37: in test_root
+    r = session.get(f"{BASE_URL}/api/", timeout=10)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:671: in get
+    return self.request("GET", url, params=params, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:651: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:784: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:742: in send
+    raise ReadTimeout(e, request=request)
+E   requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='multi-api-stack.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)</failure></testcase><testcase classname="backend.tests.test_alphalens_api.TestHealth" name="test_health" time="7.063" /><testcase classname="backend.tests.test_alphalens_api.TestSearch" name="test_search_apple" time="0.326" /><testcase classname="backend.tests.test_alphalens_api.TestSearch" name="test_search_ticker_direct" time="0.437" /><testcase classname="backend.tests.test_alphalens_api.TestSearch" name="test_search_empty_query_rejected" time="0.048" /><testcase classname="backend.tests.test_alphalens_api.TestMarketData" name="test_quote_aapl" time="0.197" /><testcase classname="backend.tests.test_alphalens_api.TestMarketData" name="test_profile_aapl" time="0.222" /><testcase classname="backend.tests.test_alphalens_api.TestMarketData" name="test_news_aapl" time="0.412" /><testcase classname="backend.tests.test_alphalens_api.TestMarketData" name="test_history_aapl" time="0.231" /><testcase classname="backend.tests.test_alphalens_api.TestResearchSSE" name="test_sse_init_and_complete" time="51.224" /><testcase classname="backend.tests.test_alphalens_api.TestResearchSSE" name="test_sse_agent_lifecycle" time="0.000" /><testcase classname="backend.tests.test_alphalens_api.TestResearchSSE" name="test_pipeline_duration" time="0.000" /><testcase classname="backend.tests.test_alphalens_api.TestCachedReport" name="test_get_report_by_id" time="0.183" /><testcase classname="backend.tests.test_alphalens_api.TestCachedReport" name="test_get_report_not_found" time="0.046" /><testcase classname="backend.tests.test_alphalens_api.TestRecentList" name="test_recent_list_contains_aapl" time="0.045" /><testcase classname="backend.tests.test_alphalens_api.TestBadTicker" name="test_bad_ticker_sse_error" time="0.794" /></testsuite></testsuites>
