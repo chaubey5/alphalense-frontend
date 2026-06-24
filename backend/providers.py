@@ -36,37 +36,51 @@ async def _get(url: str, params: Dict[str, Any] | None = None) -> Optional[Any]:
 
 
 # ---- Search ----
+def _is_tickerish(q: str) -> bool:
+    return 1 <= len(q) <= 5 and q.replace(".", "").replace("-", "").isalnum()
+
+
+def _normalize_fmp_results(rows: List[Dict[str, Any]], skip: set) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for d in rows or []:
+        sym = d.get("symbol")
+        if not sym or sym in skip:
+            continue
+        out.append({
+            "ticker": sym,
+            "name": d.get("name"),
+            "exchange": d.get("exchange") or d.get("exchangeFullName"),
+            "currency": d.get("currency"),
+        })
+    return out
+
+
 async def search_ticker(query: str) -> List[Dict[str, Any]]:
     q = (query or "").strip()
-    out: List[Dict[str, Any]] = []
+    if not q:
+        return []
 
-    # If query looks like a ticker (<=5 alphanum), first try to fetch its profile
-    if 1 <= len(q) <= 5 and q.replace(".", "").replace("-", "").isalnum():
+    seeded: List[Dict[str, Any]] = []
+    if _is_tickerish(q):
         prof = await get_profile(q.upper())
         if prof and prof.get("ticker"):
-            out.append({
+            seeded.append({
                 "ticker": prof["ticker"],
                 "name": prof.get("name") or prof["ticker"],
                 "exchange": prof.get("exchange"),
                 "currency": prof.get("currency") or "USD",
             })
 
-    data = await _get(f"{FMP}/search-name", {"query": q, "limit": 10, "apikey": FMP_KEY})
-    if data and isinstance(data, list):
-        for d in data:
-            sym = d.get("symbol")
-            if not sym or any(o["ticker"] == sym for o in out):
-                continue
-            out.append({
-                "ticker": sym,
-                "name": d.get("name"),
-                "exchange": d.get("exchange") or d.get("exchangeFullName"),
-                "currency": d.get("currency"),
-            })
-    if out:
-        return out[:8]
+    fmp = await _get(f"{FMP}/search-name",
+                     {"query": q, "limit": 10, "apikey": FMP_KEY})
+    if isinstance(fmp, list) and fmp:
+        seen = {x["ticker"] for x in seeded}
+        return (seeded + _normalize_fmp_results(fmp, seen))[:8]
+    if seeded:
+        return seeded
+
     fh = await _get(f"{FINNHUB_BASE}/search", {"q": q, "token": FINNHUB_KEY})
-    if fh and isinstance(fh, dict) and fh.get("result"):
+    if isinstance(fh, dict) and fh.get("result"):
         return [
             {"ticker": r.get("symbol"), "name": r.get("description"),
              "exchange": "", "currency": "USD"}
