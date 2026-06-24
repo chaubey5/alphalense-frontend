@@ -37,14 +37,26 @@ async def _get(url: str, params: Dict[str, Any] | None = None) -> Optional[Any]:
 
 # ---- Search ----
 async def search_ticker(query: str) -> List[Dict[str, Any]]:
-    data = await _get(f"{FMP}/search-name", {"query": query, "limit": 10, "apikey": FMP_KEY})
+    q = (query or "").strip()
     out: List[Dict[str, Any]] = []
+
+    # If query looks like a ticker (<=5 alphanum), first try to fetch its profile
+    if 1 <= len(q) <= 5 and q.replace(".", "").replace("-", "").isalnum():
+        prof = await get_profile(q.upper())
+        if prof and prof.get("ticker"):
+            out.append({
+                "ticker": prof["ticker"],
+                "name": prof.get("name") or prof["ticker"],
+                "exchange": prof.get("exchange"),
+                "currency": prof.get("currency") or "USD",
+            })
+
+    data = await _get(f"{FMP}/search-name", {"query": q, "limit": 10, "apikey": FMP_KEY})
     if data and isinstance(data, list):
         for d in data:
             sym = d.get("symbol")
-            if not sym:
+            if not sym or any(o["ticker"] == sym for o in out):
                 continue
-            # prefer US-listed (no dot suffix) at top
             out.append({
                 "ticker": sym,
                 "name": d.get("name"),
@@ -52,9 +64,8 @@ async def search_ticker(query: str) -> List[Dict[str, Any]]:
                 "currency": d.get("currency"),
             })
     if out:
-        out.sort(key=lambda x: ("." in (x["ticker"] or ""), x["ticker"]))
         return out[:8]
-    fh = await _get(f"{FINNHUB_BASE}/search", {"q": query, "token": FINNHUB_KEY})
+    fh = await _get(f"{FINNHUB_BASE}/search", {"q": q, "token": FINNHUB_KEY})
     if fh and isinstance(fh, dict) and fh.get("result"):
         return [
             {"ticker": r.get("symbol"), "name": r.get("description"),

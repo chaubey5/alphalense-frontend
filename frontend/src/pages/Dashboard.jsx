@@ -550,13 +550,13 @@ function Gauge({ value }) {
   const C = 2 * Math.PI * 48;
   const offset = C - (v / 100) * C;
   return (
-    <div className="glass-strong glass rounded-2xl p-4 flex items-center gap-4">
+    <div className="glass-strong glass rounded-2xl p-4 flex items-center gap-4" data-testid="gauge">
       <svg width="110" height="110" viewBox="0 0 110 110">
         <circle cx="55" cy="55" r="48" stroke="rgba(255,255,255,0.08)" strokeWidth="8" fill="none" />
         <circle cx="55" cy="55" r="48" stroke={stroke} strokeWidth="8" fill="none"
                 strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round"
                 transform="rotate(-90 55 55)" style={{ transition: "stroke-dashoffset 1.2s ease" }} />
-        <text x="55" y="58" textAnchor="middle" fontSize="22" fontFamily="JetBrains Mono" fill="#e7ecf3">{v}</text>
+        <text x="55" y="58" textAnchor="middle" fontSize="22" fontFamily="JetBrains Mono" fill="#e7ecf3" data-testid="confidence-score">{v}</text>
         <text x="55" y="74" textAnchor="middle" fontSize="9" fontFamily="JetBrains Mono" fill="#5b6477" letterSpacing="2">CONF</text>
       </svg>
       <div className="flex-1">
