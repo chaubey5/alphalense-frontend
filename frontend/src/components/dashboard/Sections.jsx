@@ -137,26 +137,55 @@ export function ValuationCard({ ratios, fairValue }) {
 
 export function ResearchCard({ research }) {
   return (
-    <GlassCard eyebrow="// business" title="Moat & Market Position" testId="research-card">
+    <GlassCard
+      eyebrow="// business"
+      title="Moat & Market Position"
+      testId="research-card"
+    >
       {research ? (
         <div className="space-y-4">
           <div className="text-sm text-[var(--text-dim)] leading-relaxed">
-            {research.business_summary}
+            {research.business_summary || "No business summary available."}
           </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <Stat label="Moat"            value={research.moat_strength || "—"} small />
-            <Stat label="Market Position" value={research.market_position || "—"} small />
+            <Stat
+              label="Moat"
+              value={research.moat || research.moat_strength || "—"}
+              small
+            />
+
+            <Stat
+              label="Market Position"
+              value={research.market_position || "—"}
+              small
+            />
           </div>
+
           <div>
             <div className="label-eyebrow mb-2">Growth Drivers</div>
+
             <div className="flex flex-wrap gap-2">
-              {(research.growth_drivers || []).map((g) => (
-                <span key={g} className="text-xs px-3 py-1 rounded-full glass-strong glass">{g}</span>
-              ))}
+              {Array.isArray(research.growth_drivers) ? (
+                research.growth_drivers.map((g) => (
+                  <span
+                    key={g}
+                    className="text-xs px-3 py-1 rounded-full glass-strong glass"
+                  >
+                    {g}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-[var(--text-dim)]">
+                  {research.growth_drivers || "—"}
+                </span>
+              )}
             </div>
           </div>
         </div>
-      ) : <Skeleton lines={5} />}
+      ) : (
+        <Skeleton lines={5} />
+      )}
     </GlassCard>
   );
 }
