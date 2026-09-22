@@ -112,6 +112,8 @@ FMP_API_KEY=<your_financial_modeling_prep_key>
 
 GROQ_API_KEY=<your_groq_api_key>
 
+GROQ_MODEL=openai/gpt-oss-120b
+
 ```
 
 

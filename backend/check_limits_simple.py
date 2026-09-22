@@ -9,6 +9,7 @@ import urllib.request
 import urllib.error
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 FMP_API_KEY  = os.getenv("FMP_API_KEY", "")
 
 
@@ -19,7 +20,7 @@ def check_groq():
         return
 
     payload = json.dumps({
-        "model": "openai/gpt-oss-120b",
+        "model": GROQ_MODEL,
         "messages": [{"role": "user", "content": "hi"}],
         "max_tokens": 1
     }).encode()
@@ -59,6 +60,8 @@ def check_groq():
             print(f"   Type    : {err.get('type', 'n/a')}")
         elif e.code == 401:
             print("❌ GROQ — 401 Unauthorized (invalid API key)")
+        elif e.code == 403:
+            print("❌ GROQ — 403 Forbidden (API key is invalid, revoked, or lacks access)")
         else:
             print(f"⚠️  Groq returned HTTP {e.code}")
             print(f"   Body: {body}")
