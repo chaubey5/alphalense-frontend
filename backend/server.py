@@ -34,9 +34,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("alphalens")
 
-mongo_url = os.environ["MONGO_URL"]
-mongo_client = AsyncIOMotorClient(mongo_url)
-db = mongo_client[os.environ["DB_NAME"]]
+mongo_url = os.environ.get("MONGO_URL")
+mongo_client = AsyncIOMotorClient(mongo_url) if mongo_url else None
+if mongo_client and os.environ.get("DB_NAME"):
+    db = mongo_client[os.environ["DB_NAME"]]
+else:
+    db = None
+    logger.warning("MongoDB not configured; report persistence endpoints will be disabled.")
 
 app = FastAPI(title="AlphaLens API")
 api = APIRouter(prefix="/api")
@@ -82,6 +86,8 @@ async def history(ticker: str) -> Dict[str, List[Dict[str, Any]]]:
 
 @api.get("/research/recent/list")
 async def recent_reports() -> Dict[str, List[Dict[str, Any]]]:
+    if db is None:
+        return {"items": []}
     docs = await db.research_reports.find({}, {"_id": 0}).sort("generated_at", -1).limit(8).to_list(8)
     keys = ("id", "ticker", "company_name", "recommendation", "confidence_score", "generated_at")
     return {"items": [{k: d.get(k) for k in keys} for d in docs]}
@@ -199,10 +205,13 @@ async def research_start(ticker: str = Query(..., min_length=1)) -> StreamingRes
             yield chunk
 
         report = _build_report(report_id, ticker, market, state)
-        try:
-            await db.research_reports.insert_one(report)
-        except Exception as exc:
-            logger.warning(f"save report failed: {exc}")
+        if db is not None:
+            try:
+                await db.research_reports.insert_one(report)
+            except Exception as exc:
+                logger.warning(f"save report failed: {exc}")
+        else:
+            logger.info("Report persistence skipped because MongoDB is not configured.")
 
         yield _sse("complete", {"report_id": report_id})
 
@@ -219,6 +228,8 @@ async def research_start(ticker: str = Query(..., min_length=1)) -> StreamingRes
 
 @api.get("/research/{report_id}")
 async def get_report(report_id: str) -> Dict[str, Any]:
+    if db is None:
+        raise HTTPException(503, "Report storage is not configured")
     doc = await db.research_reports.find_one({"id": report_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Report not found")
@@ -238,4 +249,5 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_db_client() -> None:
-    mongo_client.close()
+    if mongo_client is not None:
+        mongo_client.close()

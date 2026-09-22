@@ -94,6 +94,8 @@ async def _ask(system: str, user: str, session_id: str) -> str:
 # AGENTS
 # ---------------------------
 
+print("✅ Research Agent Started")
+
 async def research_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     profile = state.get("profile") or {}
     peers = state.get("peers") or []
@@ -125,6 +127,8 @@ Return JSON:
     raw = await _ask(system, user, f"research-{state.get('ticker')}")
     return _extract_json(raw)
 
+
+print("✅ Financial Agent Started")
 
 async def financial_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     fin = state.get("financials") or {}
@@ -240,20 +244,40 @@ async def macro_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 Sector: {profile.get('sector')}
 Industry: {profile.get('industry')}
 
-Return JSON:
+Return JSON where ALL values must be plain strings or numbers (no nested objects):
 {{
-  "rate_sensitivity": "",
-  "inflation_impact": "",
-  "sector_cycle_phase": "",
-  "fx_exposure": "",
-  "macro_tailwinds": [],
-  "macro_headwinds": [],
+  "rate_sensitivity": "short plain text",
+  "inflation_impact": "short plain text",
+  "sector_cycle_phase": "short plain text",
+  "fx_exposure": "short plain text",
+  "macro_tailwinds": ["plain string 1", "plain string 2"],
+  "macro_headwinds": ["plain string 1", "plain string 2"],
   "overall_macro_score": 0
 }}
 """
 
     raw = await _ask(system, user, f"macro-{state.get('ticker')}")
-    return _extract_json(raw)
+    result = _extract_json(raw)
+
+    # Normalize: if LLM returned objects instead of strings, extract a usable string
+    for key in ["rate_sensitivity", "inflation_impact", "sector_cycle_phase", "fx_exposure"]:
+        val = result.get(key)
+        if isinstance(val, dict):
+            result[key] = val.get("impact") or val.get("factor") or str(val)
+        elif not isinstance(val, str):
+            result[key] = str(val) if val is not None else "—"
+
+    for key in ["macro_tailwinds", "macro_headwinds"]:
+        val = result.get(key)
+        if isinstance(val, list):
+            result[key] = [
+                (item.get("impact") or item.get("factor") or str(item)) if isinstance(item, dict) else str(item)
+                for item in val
+            ]
+        else:
+            result[key] = []
+
+    return result
 
 
 async def moderator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -290,6 +314,7 @@ Return JSON:
 # ---------------------------
 # PIPELINE
 # ---------------------------
+print("🚀 Pipeline Started")
 async def run_pipeline_streaming(state: Dict[str, Any], emit):
     await emit("agent_start", {"agent": "research"})
     await emit("agent_start", {"agent": "financial"})
