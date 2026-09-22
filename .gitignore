@@ -6,3 +6,4 @@ __pycache__/
 dist/
 build/
 "@ | Out-File -Encoding utf8 .gitignorefrontend/node_modules/.cache/default-development/0.pack
+frontend/node_modules/.cache/default-development/0.pack

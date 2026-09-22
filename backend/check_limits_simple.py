@@ -19,7 +19,7 @@ def check_groq():
         return
 
     payload = json.dumps({
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "messages": [{"role": "user", "content": "hi"}],
         "max_tokens": 1
     }).encode()
