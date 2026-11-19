@@ -64,8 +64,9 @@ changes and are not part of this audit's implementation.
 
 ### Agent workflow
 
-- Despite project descriptions, there is no LangGraph dependency or graph
-  implementation; `agents.py` orchestrates agents with `asyncio.gather`.
+- LangGraph now models all seven agents as a sequential state graph. The
+  sequential edges and shared request semaphore prevent uncontrolled Groq
+  concurrency while preserving per-agent SSE updates.
 - A failed LLM call previously returned an empty string and could still emit
   successful `agent_done` events. Failures now create an explicit SSE error.
 - Financial metrics were requested from the model with zero defaults. Numeric
@@ -81,24 +82,22 @@ changes and are not part of this audit's implementation.
   `agent_memory` records, with 30-day TTL, per-ticker history, and
   report/session lookup. Memory is supplied to the Moderator as historical
   context and is never counted as fresh financial evidence.
-- The implementation remains an asyncio coordinator, not LangGraph. No
-  LangGraph dependency or graph workflow exists in the source.
-
 ### Frontend
 
 - Frontend API callers previously generated invalid URLs if the backend URL
-  was missing. They now share a base URL helper with a localhost development
-  fallback.
+  was missing. Production now fails over to the fixed Render URL and accepts
+  only that URL from build-time configuration; development remains pinned to
+  localhost:8001.
 - SSE failures now stop the stream and appear in the dashboard. Empty cards
   display an explicit unavailable state after completion; missing chart values
   are no longer coerced to zero.
 - CEO/profile fields, data-source labels, moderator risks/metrics, and
   unavailable-result states are rendered. Unsupported static homepage claims
   were removed.
-- The frontend production build now passes with React 19 and Create React App
-  5. Both npm and Yarn lockfiles are present, leaving multiple dependency
-  sources of truth; choose one package manager and remove/update the other
-  lockfile in a separate change.
+- The frontend production build passes with React 19 and Create React App 5.
+  Both npm and Yarn lockfiles remain; the existing deployment builds
+  successfully, so package-manager standardization is deferred rather than
+  risk changing its dependency resolution in this deployment update.
 
 ### Tests, configuration, and deployment
 
@@ -112,10 +111,11 @@ changes and are not part of this audit's implementation.
   and selected ticker workflows. Live probes were not run because credentials
   were exposed in chat and must be rotated.
 - Render and Vercel manifests are now present. Local setup uses
-  `frontend/.env.local`; the pre-existing ignored `frontend/.env` remains
-  untouched and contains a production URL.
-- Root `requirements.txt` is a large unrelated environment snapshot; the
-  backend-specific manifest is the relevant dependency file.
+  `frontend/.env.local`; ignored frontend env files point to the local backend.
+  The deployed production bundle was verified to use the Render backend URL.
+- Removed the unused root `requirements.txt` environment snapshot and the
+  unused Node manifests from the Python backend; `backend/requirements.txt`
+  is the service dependency source.
 - No application authentication exists. Report endpoints are public when
   MongoDB is configured; production use with sensitive or user-specific reports
   needs an access-control design.
@@ -149,7 +149,7 @@ changes and are not part of this audit's implementation.
 - Removed unused embedded telemetry from the frontend HTML. A browser smoke
   test verified the landing page and the dashboard's visible provider-error
   state; no HTTP failures or console errors were captured after removal.
-- `python -m pytest tests -q` from `backend`: 57 passed, 16 live integration
+- `python -m pytest tests -q` from `backend`: 69 passed, 16 live integration
   tests skipped by default. Offline cases cover ticker normalization, provider
   fallback/identity/empty data, 401/403/404/429/5xx, rate limits, timeouts,
   Alpha Vantage response shapes, SSE failures, and insufficient agent evidence.
@@ -162,10 +162,20 @@ changes and are not part of this audit's implementation.
 - Missing profile/quote is now reported as provider failure/configuration
   detail, not a symbol-not-found conclusion; agents require both a verified
   profile and quote before starting.
-- Latest backend suite: 57 passed, 16 live integration tests skipped;
+- Latest backend suite: 69 passed, 16 live integration tests skipped;
   `pip check`, Python compilation, `git diff --check`, and deployment manifest
   parsing passed. Frontend production build passed; frontend test command found
   no test files.
-- Live financial APIs, Groq, MongoDB read/write, and live AAPL/NVDA/TSLA/MSFT
-  workflows were not exercised. Credentials must be rotated and reconfigured
-  first. No live ticker is claimed as verified.
+- The production Vercel page and its compiled Render API destination were
+  checked. Render `/api/health` returned HTTP 200, but MongoDB reported
+  `connected=false` with a server-selection timeout. `/api/quote/AAPL`
+  returned HTTP 404 (`Quote not found`); the AAPL SSE flow stopped at market
+  data, before any agents or report persistence ran. No live research report
+  or memory write is claimed as verified on Render.
+- The production CORS preflight previously returned a wildcard origin. The
+  current backend configuration now rejects wildcard origins and explicitly
+  allows the verified stable Vercel production domain; this requires the
+  Render service to deploy the current commit.
+- Git history scans found no credential-like values in tracked blobs or
+  historical environment files. Live provider/Groq/Mongo probes should be
+  rerun only after exposed credentials have been rotated and reconfigured.

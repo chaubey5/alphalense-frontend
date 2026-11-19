@@ -741,7 +741,32 @@ def test_market_data_routes_return_provider_shapes(monkeypatch):
     assert responses[4].json()["points"][0]["close"] == 100
 
 
-def test_health_route_reports_liveness_without_external_requests():
+def test_cors_allows_verified_vercel_origin_without_wildcard():
+    async def preflight(origin):
+        transport = httpx.ASGITransport(app=server.app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            return await client.options(
+                "/api/health",
+                headers={
+                    "Origin": origin,
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+
+    allowed_origin = "https://alphalense-frontend.vercel.app"
+    allowed = asyncio.run(preflight(allowed_origin))
+    rejected = asyncio.run(preflight("https://untrusted.example"))
+
+    assert allowed.headers["access-control-allow-origin"] == allowed_origin
+    assert "access-control-allow-origin" not in rejected.headers
+
+
+def test_health_route_reports_liveness_without_external_requests(monkeypatch):
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "test-commit")
+    monkeypatch.setenv("RENDER_GIT_BRANCH", "main")
     response = asyncio.run(_get_app("/api/health"))
 
     assert response.status_code == 200
@@ -749,6 +774,10 @@ def test_health_route_reports_liveness_without_external_requests():
     assert payload["status"] == "ok"
     assert {provider["name"] for provider in payload["providers"]} >= {
         "fmp", "finnhub", "alphavantage", "gnews", "news",
+    }
+    assert payload["deployment"] == {
+        "commit": "test-commit",
+        "branch": "main",
     }
 
 

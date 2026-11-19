@@ -14,7 +14,7 @@ React Dashboard
 FastAPI API
     ├── Provider layer: FMP → Finnhub → Alpha Vantage quote/profile fallbacks,
     │   GNews/Finnhub news, FMP/Yahoo chart history
-    ├── Asyncio research coordinator with serialized Groq requests
+    ├── Sequential LangGraph pipeline with serialized Groq requests
     │   ├── Research, Financial, Valuation, Macro
     │   ├── Bull and Bear debate
     │   └── Moderator: INVEST / HOLD / PASS
@@ -34,12 +34,12 @@ and financial data still determines whether a recommendation is allowed and
 which evidence supports it. Memory is unavailable silently or with an explicit
 SSE warning, and it never blocks fresh analysis.
 
-The project currently uses `asyncio` orchestration; it does not use LangGraph.
-Provider requests are cached in-process, coalesced when identical requests are
-concurrent, and retried with bounded exponential backoff on transient errors.
-Numeric financial metrics are derived from retrieved statements where
-available. Missing values are left unavailable rather than replaced with
-estimates.
+LangGraph runs the seven agents sequentially so the Groq request semaphore can
+respect provider rate limits. Market-data requests are cached in-process,
+coalesced when identical requests are concurrent, and retried with bounded
+exponential backoff on transient errors. Numeric financial metrics are derived
+from retrieved statements where available. Missing values are left unavailable
+rather than replaced with estimates.
 
 ## Requirements
 
@@ -134,8 +134,36 @@ Groq quota. Diagnostic probes use unique IDs and remove only their own records.
 
 ## Deployment
 
-The repository includes `render.yaml` for the backend and `frontend/vercel.json`
-for the React single-page app. Configure provider credentials, MongoDB (if
-needed), and `CORS_ORIGINS` in Render's environment settings. Configure
-`REACT_APP_BACKEND_URL` in Vercel before the frontend build. These manifests
-contain environment variable names only; they do not contain secrets.
+The verified stable production frontend is
+[`https://alphalense-frontend.vercel.app`](https://alphalense-frontend.vercel.app);
+Vercel also assigns a unique URL to each deployment. The backend is
+[`https://alphalense-backend.onrender.com`](https://alphalense-backend.onrender.com).
+
+Vercel builds the Create React App from `frontend/`. Set the Production
+environment variable `REACT_APP_BACKEND_URL` to
+`https://alphalense-backend.onrender.com` and redeploy after changing it. The
+frontend uses this Render URL as its production fallback and only uses
+`http://localhost:8001` in development.
+
+Render uses `render.yaml`, with `backend/` as the service root, the backend
+requirements file as its build input, `$PORT` for binding, and `/api/health` as
+the health check. `backend/.python-version` selects the latest available
+Python 3.13 patch release. The Blueprint permits the verified Vercel origin.
+Render deployments should be linked to the `main` branch with Auto-Deploy set
+to **On Commit**.
+
+Configure these values in Render's environment settings; never put credentials
+in the repository:
+
+- Required for AI: `GROQ_API_KEY`; `GROQ_MODEL` defaults to
+  `openai/gpt-oss-120b`.
+- Configure one or more data providers: `FMP_API_KEY`, `FINNHUB_API_KEY`,
+  `ALPHA_VANTAGE_API_KEY`; optionally `GNEWS_API_KEY`.
+- Required for report and agent-memory persistence:
+  `MONGO_URL` and `DB_NAME` (`alphalens_db` in `render.yaml`).
+- `CORS_ORIGINS` is set by the Blueprint to
+  `https://alphalense-frontend.vercel.app`.
+- Render supplies `PORT`; do not set it manually.
+
+Vercel needs only `REACT_APP_BACKEND_URL` for the production API destination.
+Local `.env` files remain ignored and separate from these production settings.

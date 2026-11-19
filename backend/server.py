@@ -340,6 +340,10 @@ async def health() -> Dict[str, Any]:
             "connected": database_connected,
             "error": database_error,
         },
+        "deployment": {
+            "commit": os.environ.get("RENDER_GIT_COMMIT"),
+            "branch": os.environ.get("RENDER_GIT_BRANCH"),
+        },
         "time": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -691,17 +695,28 @@ async def get_report(report_id: str) -> Dict[str, Any]:
 
 app.include_router(api)
 
-cors_origins = [
-    origin.strip()
-    for origin in os.environ.get(
-        "CORS_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000",
-    ).split(",")
+configured_cors_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("CORS_ORIGINS", "").split(",")
     if origin.strip()
 ]
+wildcard_cors_requested = "*" in configured_cors_origins
+cors_origins = [
+    origin for origin in configured_cors_origins if origin != "*"
+]
+if not cors_origins:
+    cors_origins = [
+        "https://alphalense-frontend.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+if wildcard_cors_requested:
+    logger.warning("Ignoring wildcard CORS origin; using explicit allowed origins.")
+if "https://alphalense-frontend.vercel.app" not in cors_origins:
+    cors_origins.append("https://alphalense-frontend.vercel.app")
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials="*" not in cors_origins,
+    allow_credentials=False,
     allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
