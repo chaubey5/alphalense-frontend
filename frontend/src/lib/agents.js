@@ -21,6 +21,7 @@ export const AGENT_LABELS = Object.fromEntries(
 // Status helpers — readable replacement for nested ternaries.
 export function agentStatusText(status) {
   if (status === "done") return "complete";
+  if (status === "error") return "failed";
   if (status === "running") return "thinking…";
   return "queued";
 }

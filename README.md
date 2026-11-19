@@ -1,517 +1,141 @@
-# Here are your Instructions
 # AlphaLens
-## Overview
 
-AlphaLens is an AI-powered stock research platform that allows users to search for publicly traded companies, retrieve market data, company profiles, historical price information, news, and generate AI-assisted research reports. The system combines financial market APIs with large language models to provide structured investment research and analysis.
+AlphaLens is a React dashboard and FastAPI service for market data retrieval and
+AI-assisted equity research. It presents source-backed financial metrics and
+streams agent progress to the dashboard. It is a research aid, not investment
+advice.
 
-### Main Features
-
-
-* Company and stock search
-
-* Real-time stock quotes
-
-* Company profile information
-
-* Historical market data
-
-* Latest company news
-
-* AI-generated research reports
-
-* REST API backend with interactive documentation
-
-* Web-based frontend interface
----
-## How to Run It
-
-### Prerequisites
-
-* Python 3.11+
-
-* Node.js 18+
-
-* MongoDB database
-
-* API keys for financial data and AI services
-
-
-# Steps
-```
-
-1. Clone repository
-
-2. Setup backend
-
-3. Install requirements
-
-4. Configure .env
-
-5. Run FastAPI server
-
-6. Setup frontend
-
-7. Install npm packages
-
-8. Configure frontend .env
-
-9. Run React app
-
-```
-
-Commands:
-
-```
-cd backend
-
-pip install -r requirements.txt
-
-uvicorn server:app --reload
-
-```
-
-### Backend Setup
-
-
-
-1. Navigate to backend directory
-
-
-
-```bash
-
-cd backend
-
-```
-
-
-
-2. Install dependencies
-
-
-
-```bash
-
-pip install -r requirements.txt
-
-```
-
-
-
-3. Create a `.env` file
-
-
-
-```env
-
-MONGO_URL=<your_mongodb_connection_string>
-
-DB_NAME=alphalense
-
-FMP_API_KEY=<your_financial_modeling_prep_key>
-
-GROQ_API_KEY=<your_groq_api_key>
-
-GROQ_MODEL=openai/gpt-oss-120b
-
-```
-
-
-
-4. Run backend
-
-
-
-```bash
-
-uvicorn server:app --reload
-
-```
-
-
-
-Backend runs at:
-
-
+## Architecture
 
 ```text
-
-http://localhost:8000
-
+React Dashboard
+    │ REST search + Server-Sent Events (SSE)
+    ▼
+FastAPI API
+    ├── Provider layer: FMP → Finnhub → Alpha Vantage quote/profile fallbacks,
+    │   GNews/Finnhub news, FMP/Yahoo chart history
+    ├── Asyncio research coordinator with serialized Groq requests
+    │   ├── Research, Financial, Valuation, Macro
+    │   ├── Bull and Bear debate
+    │   └── Moderator: INVEST / HOLD / PASS
+    └── Optional PyMongo Async report persistence
 ```
 
+## Agent memory
 
+Completed research can be retained in MongoDB for 30 days. The
+`agent_memory` collection stores a bounded report summary, recommendation,
+confidence, reasons, risks, data sources, and agent outputs for the current
+report. The MongoDB TTL index expires records using `expires_at`.
 
-API documentation:
+Each research run also loads up to three recent summaries for the same ticker.
+The Moderator receives this history only as historical context; fresh market
+and financial data still determines whether a recommendation is allowed and
+which evidence supports it. Memory is unavailable silently or with an explicit
+SSE warning, and it never blocks fresh analysis.
 
+The project currently uses `asyncio` orchestration; it does not use LangGraph.
+Provider requests are cached in-process, coalesced when identical requests are
+concurrent, and retried with bounded exponential backoff on transient errors.
+Numeric financial metrics are derived from retrieved statements where
+available. Missing values are left unavailable rather than replaced with
+estimates.
 
+## Requirements
 
-```text
+- Python 3.11 or newer
+- Node.js 18 or newer
+- A Groq API key for AI research
+- At least one data provider key for market data
+- Optional MongoDB connection for report persistence
 
-http://localhost:8000/docs
+FMP/Finnhub/Alpha Vantage/GNews access, quotas, and plan entitlements depend on
+the provider account. No paid plan or provider key is bundled with AlphaLens.
 
-```
-
-
-
-### Frontend Setup
-
-
-
-1. Navigate to frontend directory
-
-
-
-```bash
-
-cd frontend
-
-```
-
-
-
-2. Install dependencies
-
-
-
-```bash
-
-npm install
-
-```
-
-
-
-3. Create `.env`
-
-
-
-```env
-
-REACT_APP_BACKEND_URL=http://localhost:8000
-
-```
-
-
-
-4. Start frontend
-
-
-
-```bash
-
-npm start
-
-```
-
-
-
-Frontend runs at:
-
-
-
-```text
-
-http://localhost:3000
-
-```
-
-
-
-### Production Deployment
-
-
+## Local development (Windows PowerShell)
 
 Backend:
 
+```powershell
+.\start_alphalens.ps1
+```
 
+The script checks runtimes, dependencies, and port ownership, then starts the
+backend at `http://127.0.0.1:8001` and frontend at `http://localhost:3000`.
+Backend API documentation is at `http://127.0.0.1:8001/docs`. It will not stop
+or replace a listener it cannot verify as belonging to this project.
 
-https://alphalense-backend.onrender.com
+Stop only processes launched by the startup script with:
 
+```powershell
+.\stop_alphalens.ps1
+```
 
+The development frontend always targets `http://localhost:8001`, regardless of
+stale `REACT_APP_BACKEND_URL` overrides. Its local env files use the same URL.
 
-Frontend:
+## Environment
 
+`backend/.env.example` lists supported server settings:
 
+- `GROQ_API_KEY` and optional `GROQ_MODEL`
+- `FMP_API_KEY`, `FINNHUB_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `GNEWS_API_KEY`
+- Optional `MONGO_URL` and `DB_NAME`
+- `CORS_ORIGINS`, a comma-separated list of allowed frontend origins
 
-https://alphalense-frontend.vercel.app
+`frontend/.env.example` lists `REACT_APP_BACKEND_URL`. For production, configure
+these values in the hosting provider's secret/environment settings rather than
+committing `.env` files. Set `CORS_ORIGINS` to the deployed frontend origin(s);
+do not use `*` with credentialed CORS.
 
+## API routes
 
+- `GET /api/health` — process and configuration status (not an external
+  provider connectivity check)
+- `GET /api/search?q={query}`
+- `GET /api/quote/{ticker}`
+- `GET /api/profile/{ticker}`
+- `GET /api/news/{ticker}`
+- `GET /api/history/{ticker}`
+- `GET /api/research/start?ticker={ticker}` — SSE research workflow
+- `GET /api/research/{report_id}` — saved report; requires MongoDB
+- `GET /api/research/recent/list` — recent saved reports
 
----
+## Tests and builds
 
+From `backend`:
 
+```powershell
+python -m pytest tests/test_local_api.py -q
+```
 
-## How It Works
+From `frontend`:
 
+```powershell
+npm test -- --watchAll=false
+npm run build
+```
 
+The separate `test_alphalens_api.py` suite exercises a deployed service and
+requires live data-provider credentials and MongoDB. Do not treat it as an
+offline unit test.
 
-### Architecture
+Run the local and live integration diagnostics from the project root:
 
-[ React 19 Client UI Hub ] 
+```powershell
+.\diagnose_alphalens.ps1
+```
 
-                     │ 
+The script checks local API health, the AAPL quote, frontend URL configuration,
+port ownership, provider and Groq connectivity, MongoDB, and a temporary
+agent-memory write/read/delete probe. It does not run a full AI research
+workflow; use the optional `--research` diagnostics only when willing to use
+Groq quota. Diagnostic probes use unique IDs and remove only their own records.
 
-                     ▼ (Persistent EventSource Connection)
+## Deployment
 
-       [ FastAPI Async Gateway App ] 
-
-                     │
-
-         ┌───────────┴───────────┐
-
-         ▼                       ▼
-
- [ Motor Async MongoDB ]   [ Asynchronous Graph Coordinator Pool ]
-
- (JSON State Ingestion)          │
-
-                                 ├──► Phase 1: parallel [Research, Fin, Val, Macro]
-
-                                 ├──► Phase 2: parallel [Bull vs. Bear Debate Node]
-
-                                 └──► Phase 3: sequential [CIO Moderator Synthesis]
-
-                                                 │
-
-                                                 ▼
-
-                                     [ Tiered Fallback Provider Mesh ]
-
-                                     ├── FMP Stable (Primary Route)
-
-                                     ├── Finnhub Ingestion (TTM Multiples & SEC Parsing)
-
-                                     ├── Alpha Vantage (Company Profiles)
-
-                                     └── Yahoo Finance (Chart Matrix Data Streams)
-
-### Workflow
-
-
-
-1. User searches for a company.
-
-2. Backend retrieves market data and company information.
-
-3. News and historical data are fetched.
-
-4. Research pipeline aggregates information.
-
-5. LLM generates a structured research report.
-
-6. Report is returned to frontend and displayed to the user.
-
-
-
----
-
-
-
-## Key Decisions & Trade-offs
-
-
-
-### Decisions
-
-
-
-* FastAPI chosen for high-performance backend APIs.
-
-* React chosen for frontend UI development.
-
-* MongoDB used for flexible report storage.
-
-* Render used for backend deployment.
-
-* Vercel used for frontend deployment.
-
-
-
-### Trade-offs
-
-
-
-* Free hosting tiers introduce cold starts.
-
-* Research quality depends on external API availability.
-
-* Financial data coverage is limited by API quotas.
-
-* Focus was placed on functionality rather than advanced UI polish.
-
-
-
-### Features Deferred
-
-
-
-* User authentication
-
-* Portfolio tracking
-
-* Report export (PDF)
-
-* Advanced caching layer
-
-* Multi-agent research orchestration
-
-
-
----
-
-
-
-## Example Runs
-
-
-
-### Example 1: Apple (AAPL)
-
-
-
-Output Highlights:
-
-
-
-* Current market price
-
-* Company overview
-
-* Recent news summary
-
-* AI-generated investment research
-
-
-
-### Example 2: Tesla (TSLA)
-
-
-
-Output Highlights:
-
-
-
-* Historical performance trends
-
-* Recent developments
-
-* Risk factors
-
-* Research summary
-
-
-
-### Example 3: Microsoft (MSFT)
-
-
-
-Output Highlights:
-
-
-
-* Financial overview
-
-* Market positioning
-
-* AI-generated analysis
-
-
-
----
-
-
-
-## What I Would Improve With More Time
-
-
-
-* Add authentication and user accounts
-
-* Portfolio monitoring features
-
-* Advanced report generation
-
-* PDF export support
-
-* Better caching and performance optimization
-
-* Enhanced financial metrics and visualizations
-
-* Improved research depth using multiple LLM agents
-
-* Automated testing and CI/CD pipelines
-
-
-
----
-
-
-
-## LLM Usage
-
-
-
-AI/LLM Co-Pilot Integration & Thought Process
-
-AI/LLM Methodology Selection: This platform was engineered using an iterative, dual-model AI development paradigm. To maximize code generation fidelity and architectural execution, Claude 4.5 (via E1 coding assistant configuration) was selected as the primary Pair-Programmer and Systems Architect. Concurrently, Groq's LLaMA-3.3-70B-Versatile engine was chosen as the runtime multi-agent orchestration infrastructure due to its sub-3-second inference speeds.
-
-
-
-Detailed LLM In-Context Inventions & Engineering Contributions:
-
-System Architecture Planning & DAG Topology:
-
-
-
-Assisted in designing a 3-Phase non-blocking Directed Acyclic Graph (DAG) using native Python asyncio.gather().
-
-
-
-The LLM guided the decision to bypass heavy frameworks like LangGraph in favor of a raw async supervisor-worker pool to minimize compute latency and prevent task overhead.
-
-
-
-Multi-Tier Provider Hardening (HTTP 429 Mitigation):
-
-
-
-During active sandboxed execution, primary data nodes experienced immediate rate-limit failures (HTTP 429).
-
-
-
-The LLM assisted in writing an in-memory TTL caching layout and mapping out an alternative ingestion pipeline. This allowed the system to parse raw Finnhub SEC GAAP JSON streams (us-gaap_Revenues) to dynamically rebuild balance sheets when primary APIs degraded.
-
-
-
-Context Density Tuning & Token Optimization:
-
-
-
-Initial parallel runs choked on Groq's Daily Token Limits (TPD) due to passing full raw JSON streams down to secondary agents (Bull, Bear, Moderator).
-
-
-
-Co-piloted a contextual compaction algorithm that reduced prompt token payloads by over 60%, stabilizing the multi-agent pipeline under production limits.
-
-
-
-Frontend Architecture & Reactive Stream Binding:
-
-
-
-Guided the implementation of a unified React useReducer state hook (useResearchPipeline.js) to consume backend Server-Sent Events (SSE) cleanly.
-
-
-
-Resolved critical frontend closures and state-shadowing bugs, and assisted in configuring root metadata overrides inside frontend/public/index.html to fully stamp out framework placeholders.
-
-
-
-Deployment Operations & CI/CD Debugging:
-
-
-
-Provided rapid troubleshooting patterns for path routing discrepancies during Render deployment (FastAPI route ordering fixes) and automated environment configuration bindings on Vercel.
-
-give me the direct pdf file above info like read me file of project and same flow of arctechture
+The repository includes `render.yaml` for the backend and `frontend/vercel.json`
+for the React single-page app. Configure provider credentials, MongoDB (if
+needed), and `CORS_ORIGINS` in Render's environment settings. Configure
+`REACT_APP_BACKEND_URL` in Vercel before the frontend build. These manifests
+contain environment variable names only; they do not contain secrets.

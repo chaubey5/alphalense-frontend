@@ -1,9 +1,13 @@
-@"
 .env
+.env.*
+!.env.example
 node_modules/
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
 dist/
 build/
-"@ | Out-File -Encoding utf8 .gitignorefrontend/node_modules/.cache/default-development/0.pack
+coverage/
+.alphalens/
 frontend/node_modules/.cache/default-development/0.pack

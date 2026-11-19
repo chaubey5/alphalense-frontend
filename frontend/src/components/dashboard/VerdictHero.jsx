@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
+import Skeleton from "@/components/dashboard/Skeleton";
 import { verdictClass, gaugeColor, convictionText } from "@/lib/format";
 
 const HERO_INIT = { opacity: 0, y: 16 };
@@ -52,8 +53,24 @@ function glowFor(recommendation) {
   return "";
 }
 
-export default function VerdictHero({ moderator }) {
-  if (!moderator?.recommendation) return null;
+export default function VerdictHero({ moderator, loading = true }) {
+  if (!moderator?.recommendation) {
+    return (
+      <GlassCard testId="recommendation-card">
+        {loading
+          ? <Skeleton lines={4} />
+          : <div role="status" className="text-sm text-[var(--text-faint)]">Final recommendation is unavailable.</div>}
+      </GlassCard>
+    );
+  }
+
+  const risks = Array.isArray(moderator.risks) ? moderator.risks : [];
+  const sources = Array.isArray(moderator.data_sources) ? moderator.data_sources : [];
+  const metrics = moderator.financial_metrics && typeof moderator.financial_metrics === "object"
+    ? Object.entries(moderator.financial_metrics)
+    : [];
+  const upside = moderator.expected_upside_pct;
+  const downside = moderator.expected_downside_pct;
 
   return (
     <motion.div initial={HERO_INIT} animate={HERO_ANIM} transition={HERO_TRANS}>
@@ -85,12 +102,37 @@ export default function VerdictHero({ moderator }) {
                 </li>
               ))}
             </ul>
+            {risks.length > 0 && (
+              <div className="mt-5">
+                <div className="label-eyebrow mb-2 text-[var(--danger)]">Key risks</div>
+                <ul className="space-y-1 text-sm text-[var(--text-dim)]">
+                  {risks.map((risk) => <li key={risk}>! {risk}</li>)}
+                </ul>
+              </div>
+            )}
+            {metrics.length > 0 && (
+              <div className="mt-5">
+                <div className="label-eyebrow mb-2">Retrieved financial metrics</div>
+                <div className="flex flex-wrap gap-2">
+                  {metrics.map(([key, value]) => (
+                    <span key={key} className="text-xs px-3 py-1 rounded-full border border-[var(--border)]">
+                      {key}: {typeof value === "number" ? value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : value}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {sources.length > 0 && (
+              <div className="mt-4 text-xs text-[var(--text-faint)]">
+                Data sources: {sources.join(", ")}
+              </div>
+            )}
           </div>
           <div className="space-y-4">
             <Gauge value={moderator.confidence_score || 0} />
             <div className="grid grid-cols-2 gap-3">
-              <Stat label="Upside"   value={`${moderator.expected_upside_pct ?? "—"}%`} good />
-              <Stat label="Downside" value={`${moderator.expected_downside_pct ?? "—"}%`} bad />
+              <Stat label="Upside" value={upside == null ? "—" : `${upside.toFixed(2)}%`} good />
+              <Stat label="Downside" value={downside == null ? "—" : `${downside.toFixed(2)}%`} bad />
             </div>
           </div>
         </div>

@@ -3,8 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Search, Loader2, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { apiUrl } from "@/lib/api";
 
 const DROPDOWN_INIT = { opacity: 0, y: -6 };
 const DROPDOWN_ANIM = { opacity: 1, y: 0 };
@@ -16,7 +15,9 @@ export default function SearchBar({ size = "lg", autoFocus = false }) {
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const debounceRef = useRef(null);
+  const requestRef = useRef(null);
   const navigate = useNavigate();
 
   const choose = useCallback((tickerSym) => {
@@ -28,23 +29,39 @@ export default function SearchBar({ size = "lg", autoFocus = false }) {
   useEffect(() => {
     if (!q || q.length < 1) {
       setResults([]);
+      setSearchError("");
+      setLoading(false);
       return undefined;
     }
     setLoading(true);
+    setSearchError("");
+    requestRef.current?.abort();
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      const request = new AbortController();
+      requestRef.current = request;
       try {
-        const { data } = await axios.get(`${API}/search`, { params: { q } });
+        const { data } = await axios.get(apiUrl("search"), {
+          params: { q },
+          signal: request.signal,
+        });
         setResults(data.results || []);
         setOpen(true);
       } catch (err) {
-        console.error("search failed:", err);
-        setResults([]);
+        if (!axios.isCancel(err)) {
+          console.error("search failed:", err);
+          setResults([]);
+          setSearchError("Company search is unavailable. Check the backend connection and try again.");
+          setOpen(true);
+        }
       } finally {
-        setLoading(false);
+        if (!request.signal.aborted) setLoading(false);
       }
     }, 220);
-    return () => clearTimeout(debounceRef.current);
+    return () => {
+      clearTimeout(debounceRef.current);
+      requestRef.current?.abort();
+    };
   }, [q]);
 
   const submit = useCallback(() => {
@@ -92,7 +109,7 @@ export default function SearchBar({ size = "lg", autoFocus = false }) {
       </div>
 
       <AnimatePresence>
-        {open && results.length > 0 && (
+        {open && (results.length > 0 || searchError || (!loading && q.trim())) && (
           <motion.div
             initial={DROPDOWN_INIT}
             animate={DROPDOWN_ANIM}
@@ -114,6 +131,16 @@ export default function SearchBar({ size = "lg", autoFocus = false }) {
                 <span className="label-eyebrow">{r.exchange || r.currency}</span>
               </button>
             ))}
+            {searchError && (
+              <div role="status" className="px-5 py-3 text-sm text-[var(--danger)]">
+                {searchError}
+              </div>
+            )}
+            {!searchError && !loading && results.length === 0 && (
+              <div role="status" className="px-5 py-3 text-sm text-[var(--text-dim)]">
+                No companies found. Check the ticker and try again.
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

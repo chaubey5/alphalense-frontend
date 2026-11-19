@@ -6,19 +6,27 @@ recent list, and one bad-ticker edge case.
 import os
 import json
 import time
+from pathlib import Path
 import pytest
 import requests
 
+
+pytestmark = pytest.mark.skipif(
+    os.environ.get("RUN_LIVE_INTEGRATION_TESTS") != "1",
+    reason="set RUN_LIVE_INTEGRATION_TESTS=1 to run deployed-service tests",
+)
+
+
 def _load_backend_url():
-    # First try env, otherwise parse frontend/.env (which holds the public URL)
     v = os.environ.get("REACT_APP_BACKEND_URL")
     if v:
         return v.rstrip("/")
-    with open("/app/frontend/.env") as f:
-        for line in f:
+    env_file = Path(__file__).resolve().parents[2] / "frontend" / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
             if line.startswith("REACT_APP_BACKEND_URL="):
-                return line.split("=", 1)[1].strip().rstrip("/")
-    raise RuntimeError("REACT_APP_BACKEND_URL not configured")
+                return line.split("=", 1)[1].strip().strip('"').rstrip("/")
+    return "http://localhost:8001"
 
 
 BASE_URL = _load_backend_url()

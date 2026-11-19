@@ -18,6 +18,18 @@ const PRICE_MARGIN = { top: 6, right: 8, bottom: 0, left: 0 };
 function compactTick(value) { return fmtNum(value, { compact: true }); }
 function compactCurrencyTip(value) { return fmtNum(value, { compact: true, currency: true }); }
 
+function EmptyState({ loading, text, lines = 4 }) {
+  return loading
+    ? <Skeleton lines={lines} />
+    : <div role="status" className="text-sm text-[var(--text-faint)]">{text}</div>;
+}
+
+function hasContent(value) {
+  return value && Object.values(value).some((item) =>
+    Array.isArray(item) ? item.length > 0 : Boolean(item),
+  );
+}
+
 function buildOverviewStats(profile) {
   const candidates = [
     { label: "Market Cap", value: fmtNum(profile.marketCap, { compact: true, currency: true }), priority: 1 },
@@ -35,10 +47,10 @@ function buildOverviewStats(profile) {
   return candidates
     .filter((c) => c.value && c.value !== "—")
     .sort((a, b) => a.priority - b.priority)
-    .slice(0, 8);
+    .slice(0, 11);
 }
 
-export function OverviewCard({ profile }) {
+export function OverviewCard({ profile, loading = true }) {
   return (
     <GlassCard eyebrow="// company" title="Overview" className="lg:col-span-2" testId="overview-card">
       {profile ? (
@@ -52,12 +64,12 @@ export function OverviewCard({ profile }) {
             ))}
           </div>
         </>
-      ) : <Skeleton lines={6} />}
+      ) : <EmptyState loading={loading} text="Company profile is unavailable from the configured providers." lines={6} />}
     </GlassCard>
   );
 }
 
-export function PriceChartCard({ history, quote }) {
+export function PriceChartCard({ history, quote, loading = true }) {
   return (
     <GlassCard eyebrow="// 6-month price" title="Trajectory" testId="price-chart-card">
       {history.length > 0 ? (
@@ -69,7 +81,7 @@ export function PriceChartCard({ history, quote }) {
             <Line type="monotone" dataKey="close" stroke="var(--accent)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
-      ) : <Skeleton lines={6} />}
+      ) : <EmptyState loading={loading} text="Historical prices are unavailable." lines={6} />}
       {quote && (
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Stat label="52W Low"  value={fmtNum(quote.yearLow,  { digits: 2 })} small />
@@ -80,7 +92,7 @@ export function PriceChartCard({ history, quote }) {
   );
 }
 
-export function RevenueChartCard({ revChart, financial }) {
+export function RevenueChartCard({ revChart, financial, loading = true }) {
   return (
     <GlassCard eyebrow="// fundamentals" title="Revenue & Net Income"
                className="lg:col-span-2" testId="financials-card">
@@ -94,13 +106,13 @@ export function RevenueChartCard({ revChart, financial }) {
             <Bar dataKey="netIncome" fill="var(--accent-3)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      ) : <Skeleton lines={6} />}
+      ) : <EmptyState loading={loading} text="Financial statements are unavailable." lines={6} />}
 
-      {financial && (
+      {financial && Object.keys(financial).length > 0 && (
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="Rev Growth" value={`${financial.revenue_growth_yoy_pct ?? "—"}%`} />
-          <Stat label="Net Margin" value={`${financial.net_margin_pct ?? "—"}%`} />
-          <Stat label="ROE"        value={`${financial.roe_pct ?? "—"}%`} />
+          <Stat label="Rev Growth" value={financial.revenue_growth_yoy_pct == null ? "—" : `${financial.revenue_growth_yoy_pct.toFixed(2)}%`} />
+          <Stat label="Net Margin" value={financial.net_margin_pct == null ? "—" : `${financial.net_margin_pct.toFixed(2)}%`} />
+          <Stat label="ROE"        value={financial.roe_pct == null ? "—" : `${financial.roe_pct.toFixed(2)}%`} />
           <Stat label="D/E"        value={financial.debt_to_equity ?? "—"} />
         </div>
       )}
@@ -108,10 +120,10 @@ export function RevenueChartCard({ revChart, financial }) {
   );
 }
 
-export function ValuationCard({ ratios, fairValue }) {
+export function ValuationCard({ ratios, fairValue, loading = true }) {
   return (
     <GlassCard eyebrow="// valuation" title="Fair value" testId="valuation-card">
-      {ratios ? (
+      {ratios && Object.keys(ratios).length > 0 ? (
         <div className="space-y-3">
           <Stat label="P/E (TTM)"     value={ratios.peTTM ? Number(ratios.peTTM).toFixed(2) : "—"} small />
           <Stat label="PEG"           value={ratios.pegTTM ? Number(ratios.pegTTM).toFixed(2) : "—"} small />
@@ -130,19 +142,19 @@ export function ValuationCard({ ratios, fairValue }) {
             </div>
           )}
         </div>
-      ) : <Skeleton lines={6} />}
+      ) : <EmptyState loading={loading} text="Valuation ratios are unavailable." lines={6} />}
     </GlassCard>
   );
 }
 
-export function ResearchCard({ research }) {
+export function ResearchCard({ research, loading = true }) {
   return (
     <GlassCard
       eyebrow="// business"
       title="Moat & Market Position"
       testId="research-card"
     >
-      {research ? (
+      {hasContent(research) ? (
         <div className="space-y-4">
           <div className="text-sm text-[var(--text-dim)] leading-relaxed">
             {research.business_summary || "No business summary available."}
@@ -183,17 +195,15 @@ export function ResearchCard({ research }) {
             </div>
           </div>
         </div>
-      ) : (
-        <Skeleton lines={5} />
-      )}
+      ) : <EmptyState loading={loading} text="Business analysis is unavailable." lines={5} />}
     </GlassCard>
   );
 }
 
-export function MacroCard({ macro }) {
+export function MacroCard({ macro, loading = true }) {
   return (
     <GlassCard eyebrow="// macro" title="Macro & Sector context" testId="macro-card">
-      {macro ? (
+      {hasContent(macro) ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Stat label="Rate sensitivity" value={macro.rate_sensitivity || "—"} small />
@@ -218,19 +228,19 @@ export function MacroCard({ macro }) {
             </div>
           )}
         </div>
-      ) : <Skeleton lines={5} />}
+      ) : <EmptyState loading={loading} text="Macro analysis is unavailable." lines={5} />}
     </GlassCard>
   );
 }
 
 const ANALYST_BUCKETS = ["strongBuy", "buy", "hold", "sell", "strongSell"];
 
-export function AnalystCard({ analyst }) {
+export function AnalystCard({ analyst, loading = true }) {
   const hasTargets = analyst && (analyst.targetConsensus || analyst.targetHigh || analyst.targetLow);
   const hasRatings = analyst && (analyst.strongBuy ?? null) !== null;
   return (
     <GlassCard eyebrow="// the street" title="Analyst consensus" testId="analyst-card">
-      {analyst ? (
+      {analyst && Object.keys(analyst).length > 0 ? (
         <div className="space-y-4">
           {hasTargets ? (
             <div className="grid grid-cols-3 gap-3">
@@ -251,12 +261,12 @@ export function AnalystCard({ analyst }) {
             </div>
           )}
         </div>
-      ) : <Skeleton lines={4} />}
+      ) : <EmptyState loading={loading} text="Analyst consensus is unavailable." lines={4} />}
     </GlassCard>
   );
 }
 
-export function PeersCard({ peers }) {
+export function PeersCard({ peers, loading = true }) {
   return (
     <GlassCard eyebrow="// peers" title="Direct competitors" testId="peers-card">
       {peers.length > 0 ? (
@@ -276,12 +286,12 @@ export function PeersCard({ peers }) {
             </Link>
           ))}
         </div>
-      ) : <Skeleton lines={5} />}
+      ) : <EmptyState loading={loading} text="Peer data is unavailable." lines={5} />}
     </GlassCard>
   );
 }
 
-export function NewsCard({ news }) {
+export function NewsCard({ news, loading = true }) {
   return (
     <GlassCard eyebrow="// the tape" title="Latest news" testId="news-card">
       {news.length > 0 ? (
@@ -298,16 +308,20 @@ export function NewsCard({ news }) {
             </a>
           ))}
         </div>
-      ) : <Skeleton lines={6} />}
+      ) : <EmptyState loading={loading} text="No recent news is available." lines={6} />}
     </GlassCard>
   );
 }
 
-export function LogCard({ steps }) {
+export function LogCard({ steps, loading = true }) {
   return (
     <GlassCard eyebrow="// pipeline log" title="Reasoning trace" testId="log-card">
       <div className="font-mono text-xs space-y-1 max-h-60 overflow-auto">
-        {steps.length === 0 && <div className="text-[var(--text-faint)]">connecting…</div>}
+        {steps.length === 0 && (
+          <div className="text-[var(--text-faint)]">
+            {loading ? "Connecting to research service…" : "No pipeline events were received."}
+          </div>
+        )}
         {steps.map((s) => (
           <div key={`${s.t}-${s.text}`} className="text-[var(--text-dim)]">
             <span className="text-[var(--text-faint)]">[{new Date(s.t).toLocaleTimeString()}]</span> {s.text}

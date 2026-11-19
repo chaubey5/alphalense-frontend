@@ -5,11 +5,11 @@ import SearchBar from "@/components/SearchBar";
 
 const FEATURES = [
   { id: "council",   icon: Sparkles,    title: "6-Agent AI Council", desc: "Research, Financial, Valuation, Bull, Bear, Macro analysts debate every stock." },
-  { id: "providers", icon: Layers,      title: "Multi-Provider Data", desc: "FMP + Finnhub + Alpha Vantage + GNews — failover and cross-validation built in." },
-  { id: "fairvalue", icon: BarChart3,   title: "Fair-Value Modeling", desc: "DCF, P/E, EV/EBITDA, Graham Number — triangulated into a single fair-value range." },
+  { id: "providers", icon: Layers,      title: "Multi-Provider Data", desc: "Provider fallbacks for market data, with source labels and missing-data handling." },
+  { id: "fairvalue", icon: BarChart3,   title: "Evidence-Based Valuation", desc: "Retrieved valuation ratios and provider DCF values when available; no invented price targets." },
   { id: "streaming", icon: Activity,    title: "Streaming Analysis", desc: "SSE-powered live updates. Watch every agent reason in real time." },
-  { id: "verdict",   icon: ShieldCheck, title: "Transparent Verdict", desc: "INVEST / HOLD / PASS with confidence score and exact reasoning behind it." },
-  { id: "speed",     icon: Zap,         title: "Built for Speed", desc: "Parallel agent execution. Most reports complete in under 60 seconds." },
+  { id: "verdict",   icon: ShieldCheck, title: "Evidence-Aware Verdict", desc: "INVEST / HOLD / PASS with confidence, risks, available metrics, and data sources." },
+  { id: "speed",     icon: Zap,         title: "Live Progress", desc: "Controlled agent calls stream progress; completion time depends on provider availability." },
 ];
 
 const SUGGESTIONS = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL", "AMZN", "META"];
@@ -17,17 +17,17 @@ const SUGGESTIONS = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL", "AMZN", "META"];
 const AGENTS = [
   { id: "research",  label: "Research",  blurb: "Business model, moat, market position." },
   { id: "financial", label: "Financial", blurb: "Income, balance sheet, FCF, margins, ROE." },
-  { id: "valuation", label: "Valuation", blurb: "DCF, P/E, EV/EBITDA, Graham, fair-value range." },
+  { id: "valuation", label: "Valuation", blurb: "Available valuation ratios and provider DCF values." },
   { id: "bull",      label: "Bull",      blurb: "The strongest possible case to buy." },
   { id: "bear",      label: "Bear",      blurb: "The strongest possible case to avoid." },
-  { id: "macro",     label: "Macro",     blurb: "Fed cycle, FX, sector phase, headwinds." },
+  { id: "macro",     label: "Macro",     blurb: "General sector exposure, with current-data limitations called out." },
 ];
 
 const STATS = [
-  { id: "agents",    value: "6",    label: "AI analyst agents" },
-  { id: "providers", value: "4",    label: "data providers" },
-  { id: "time",      value: "~50s", label: "average report time" },
-  { id: "trans",     value: "100%", label: "transparent reasoning" },
+  { id: "agents",    value: "6 + 1", label: "specialists + moderator" },
+  { id: "providers", value: "5",     label: "provider integrations" },
+  { id: "time",      value: "Live",  label: "pipeline progress" },
+  { id: "trans",     value: "No",    label: "invented financial values" },
 ];
 
 const HIDDEN = { opacity: 0, y: 20 };

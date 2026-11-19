@@ -5,7 +5,7 @@ import Skeleton from "@/components/dashboard/Skeleton";
 function ThesisList({ items, sign, accentClass }) {
   return (
     <>
-      {items.map((point, idx) => (
+      {(Array.isArray(items) ? items : []).map((point, idx) => (
         <li key={point} className="flex gap-3 text-sm">
           <span className={`${accentClass} font-mono`}>
             {sign}{(idx + 1).toString().padStart(2, "0")}
@@ -18,7 +18,7 @@ function ThesisList({ items, sign, accentClass }) {
 }
 
 function TagRow({ label, items, accentClass, borderClass }) {
-  if (!items?.length) return null;
+  if (!Array.isArray(items) || !items.length) return null;
   return (
     <li className="pt-3 border-t border-[var(--border)]">
       <div className="label-eyebrow mb-2">{label}</div>
@@ -34,7 +34,9 @@ function TagRow({ label, items, accentClass, borderClass }) {
   );
 }
 
-export function BullCard({ bull }) {
+export function BullCard({ bull, loading = true }) {
+  const hasThesis = Array.isArray(bull?.thesis_points) && bull.thesis_points.length > 0;
+  const hasCatalysts = Array.isArray(bull?.catalysts) && bull.catalysts.length > 0;
   return (
     <GlassCard glow="glow-mint" testId="bull-card">
       <div className="flex items-center gap-3 mb-4">
@@ -42,19 +44,23 @@ export function BullCard({ bull }) {
         <div className="label-eyebrow">// bull case</div>
       </div>
       <h3 className="font-serif text-2xl mb-4 italic">Why you&apos;d buy this</h3>
-      {bull ? (
+      {hasThesis || hasCatalysts ? (
         <ul className="space-y-3">
           <ThesisList items={bull.thesis_points || []} sign="+" accentClass="text-[var(--accent)]" />
           <TagRow label="Catalysts" items={bull.catalysts}
                   accentClass="bg-[var(--accent)]/10 text-[var(--accent)]"
                   borderClass="border border-[var(--accent)]/30" />
         </ul>
-      ) : <Skeleton lines={5} />}
+      ) : loading ? <Skeleton lines={5} /> : (
+        <div role="status" className="text-sm text-[var(--text-faint)]">Bull analysis is unavailable.</div>
+      )}
     </GlassCard>
   );
 }
 
-export function BearCard({ bear }) {
+export function BearCard({ bear, loading = true }) {
+  const hasThesis = Array.isArray(bear?.thesis_points) && bear.thesis_points.length > 0;
+  const hasRisks = Array.isArray(bear?.risks) && bear.risks.length > 0;
   return (
     <GlassCard glow="glow-orange" testId="bear-card">
       <div className="flex items-center gap-3 mb-4">
@@ -62,14 +68,16 @@ export function BearCard({ bear }) {
         <div className="label-eyebrow">// bear case</div>
       </div>
       <h3 className="font-serif text-2xl mb-4 italic">Why you&apos;d pass</h3>
-      {bear ? (
+      {hasThesis || hasRisks ? (
         <ul className="space-y-3">
           <ThesisList items={bear.thesis_points || []} sign="-" accentClass="text-[var(--danger)]" />
           <TagRow label="Risks" items={bear.risks}
                   accentClass="bg-[var(--danger)]/10 text-[var(--danger)]"
                   borderClass="border border-[var(--danger)]/30" />
         </ul>
-      ) : <Skeleton lines={5} />}
+      ) : loading ? <Skeleton lines={5} /> : (
+        <div role="status" className="text-sm text-[var(--text-faint)]">Bear analysis is unavailable.</div>
+      )}
     </GlassCard>
   );
 }

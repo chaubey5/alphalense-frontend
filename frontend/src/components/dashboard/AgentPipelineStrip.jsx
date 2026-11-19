@@ -1,9 +1,10 @@
-import { CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Circle, Loader2 } from "lucide-react";
 import GlassCard from "@/components/GlassCard";
 import { AGENT_META, AGENT_ORDER, agentStatusText } from "@/lib/agents";
 
 function StatusIcon({ status }) {
   if (status === "done")    return <CheckCircle2 className="w-4 h-4 text-[var(--accent)]" />;
+  if (status === "error")   return <AlertCircle className="w-4 h-4 text-[var(--danger)]" />;
   if (status === "running") return <Loader2 className="w-4 h-4 animate-spin text-[var(--accent-3)]" />;
   return <Circle className="w-4 h-4 text-[var(--text-faint)]" />;
 }

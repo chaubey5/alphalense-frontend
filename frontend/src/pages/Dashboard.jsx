@@ -18,22 +18,27 @@ import { fmtNum } from "@/lib/format";
 function buildRevenueChart(incomeRows = []) {
   return incomeRows.slice().reverse().map((r) => ({
     year: (r.date || "").slice(0, 4),
-    revenue: r.revenue || 0,
-    netIncome: r.netIncome || 0,
+    revenue: r.revenue ?? null,
+    netIncome: r.netIncome ?? null,
   }));
 }
 
-function PriceBlock({ quote }) {
-  if (!quote) return <span className="shimmer inline-block w-32 h-10 rounded" />;
-  const isUp = quote.change >= 0;
+function PriceBlock({ quote, loading }) {
+  if (!quote && loading) return <span className="shimmer inline-block w-32 h-10 rounded" />;
+  if (!quote) return <span className="text-sm text-[var(--text-faint)]">Quote unavailable</span>;
+  const change = Number(quote.change);
+  const hasChange = Number.isFinite(change);
+  const isUp = hasChange && change >= 0;
   const Icon = isUp ? TrendingUp : TrendingDown;
-  const color = isUp ? "text-[var(--accent)]" : "text-[var(--danger)]";
+  const color = !hasChange
+    ? "text-[var(--text-dim)]"
+    : isUp ? "text-[var(--accent)]" : "text-[var(--danger)]";
   return (
     <div className="text-right">
       <div className="h-display text-5xl">{fmtNum(quote.price, { digits: 2 })}</div>
       <div className={`mt-1 font-mono text-sm flex items-center justify-end gap-2 ${color}`}>
-        <Icon className="w-4 h-4" />
-        {fmtNum(quote.change)} ({fmtNum(quote.changesPercentage)}%)
+        {hasChange && <Icon className="w-4 h-4" />}
+        {hasChange ? `${fmtNum(change)} (${fmtNum(quote.changesPercentage)}%)` : "Change unavailable"}
       </div>
     </div>
   );
@@ -41,7 +46,7 @@ function PriceBlock({ quote }) {
 
 export default function Dashboard() {
   const { ticker } = useParams();
-  const { marketData, agents, steps, status, error, done } =
+  const { marketData, agents, steps, status, error, done, loading } =
     useResearchPipeline(ticker, AGENT_LABELS);
 
   const moderator = agents.moderator || {};
@@ -52,7 +57,9 @@ export default function Dashboard() {
   const news      = marketData?.news    || [];
   const history   = marketData?.history || [];
   const analyst   = marketData?.analyst;
-  const revChart  = buildRevenueChart(marketData?.financials?.income);
+  const revChart  = buildRevenueChart(
+    Array.isArray(marketData?.financials?.income) ? marketData.financials.income : [],
+  );
 
   return (
     <div className="min-h-screen grid-bg pb-20" data-testid="research-dashboard">
@@ -80,7 +87,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <PriceBlock quote={quote} />
+          <PriceBlock quote={quote} loading={loading} />
         </div>
 
         {error && (
@@ -93,36 +100,36 @@ export default function Dashboard() {
 
         <AgentPipelineStrip status={status} />
 
-        <VerdictHero moderator={moderator} />
+        <VerdictHero moderator={moderator} loading={loading} />
 
         <div className="grid lg:grid-cols-3 gap-6">
-          <OverviewCard profile={profile} />
-          <PriceChartCard history={history} quote={quote} />
+          <OverviewCard profile={profile} loading={loading} />
+          <PriceChartCard history={history} quote={quote} loading={loading} />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          <RevenueChartCard revChart={revChart} financial={agents.financial} />
-          <ValuationCard ratios={ratios} fairValue={agents.valuation} />
+          <RevenueChartCard revChart={revChart} financial={agents.financial} loading={loading} />
+          <ValuationCard ratios={ratios} fairValue={agents.valuation} loading={loading} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          <BullCard bull={agents.bull} />
-          <BearCard bear={agents.bear} />
+          <BullCard bull={agents.bull} loading={loading} />
+          <BearCard bear={agents.bear} loading={loading} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          <ResearchCard research={agents.research} />
-          <MacroCard macro={agents.macro} />
+          <ResearchCard research={agents.research} loading={loading} />
+          <MacroCard macro={agents.macro} loading={loading} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          <AnalystCard analyst={analyst} />
-          <PeersCard peers={peers} />
+          <AnalystCard analyst={analyst} loading={loading} />
+          <PeersCard peers={peers} loading={loading} />
         </div>
 
-        <NewsCard news={news} />
+        <NewsCard news={news} loading={loading} />
 
-        <LogCard steps={steps} />
+        <LogCard steps={steps} loading={loading} />
       </div>
     </div>
   );
