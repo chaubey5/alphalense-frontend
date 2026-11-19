@@ -1,4 +1,4 @@
-"""
+﻿"""
 Multi-agent AI orchestration for AlphaLens.
 Converted to Groq (OpenAI-compatible API).
 """
@@ -10,12 +10,35 @@ import math
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict
+from typing import Any, Dict, TypedDict
 from openai import AsyncOpenAI
+from langgraph.graph import END, StateGraph
 
 from providers import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
+
+
+class AlphaLensState(TypedDict, total=False):
+    ticker: str
+    profile: Dict[str, Any]
+    quote: Dict[str, Any]
+    financials: Dict[str, Any]
+    ratios: Dict[str, Any]
+    peers: list[Any]
+    analyst: Dict[str, Any]
+    news: list[Any]
+    memory_context: Dict[str, Any]
+    research: Dict[str, Any]
+    financial: Dict[str, Any]
+    valuation: Dict[str, Any]
+    macro: Dict[str, Any]
+    bull: Dict[str, Any]
+    bear: Dict[str, Any]
+    moderator: Dict[str, Any]
+    pipeline_error: str
+    emit: Any
+
 
 # ---------------------------
 # GROQ CONFIG
@@ -707,53 +730,82 @@ Return JSON:
 # PIPELINE
 # ---------------------------
 print("Pipeline Started")
-async def run_pipeline_streaming(state: Dict[str, Any], emit):
-    failures = []
+_AGENT_SEQUENCE = (
+    "research",
+    "financial",
+    "valuation",
+    "macro",
+    "bull",
+    "bear",
+    "moderator",
+)
 
-    async def execute(name, agent):
-        await emit("agent_start", {"agent": name})
+
+def _agent_node(agent_name: str):
+    async def run(state: AlphaLensState) -> Dict[str, Any]:
+        emit = state.get("emit")
+        if emit:
+            await emit("agent_start", {"agent": agent_name})
         try:
-            result = await agent(state)
+            result = await globals()[f"{agent_name}_agent"](state)
         except Exception as exc:
-            failures.append(name)
             logger.warning(
                 "Research agent failed agent=%s error_type=%s",
-                name, type(exc).__name__,
+                agent_name,
+                type(exc).__name__,
             )
-            await emit("agent_error", {
-                "agent": name,
-                "message": f"The {name} agent could not complete.",
-            })
-            return
-        state[name] = result
-        await emit("agent_done", {"agent": name, "data": result})
+            if emit:
+                await emit("agent_error", {
+                    "agent": agent_name,
+                    "message": f"The {agent_name} agent could not complete.",
+                })
+            return {"pipeline_error": agent_name}
 
-    for name, agent in (
-        ("research", research_agent),
-        ("financial", financial_agent),
-        ("valuation", valuation_agent),
-        ("macro", macro_agent),
-    ):
-        await execute(name, agent)
+        if emit:
+            await emit("agent_done", {"agent": agent_name, "data": result})
+        return {agent_name: result}
 
-    if failures:
-        raise RuntimeError(
-            "Research pipeline incomplete; required agents failed: "
-            + ", ".join(failures)
+    return run
+
+
+def _next_agent(next_name: str):
+    def route(state: AlphaLensState) -> str:
+        return END if state.get("pipeline_error") else next_name
+
+    return route
+
+
+def _build_graph():
+    graph = StateGraph(AlphaLensState)
+    for agent_name in _AGENT_SEQUENCE:
+        graph.add_node(f"{agent_name}_node", _agent_node(agent_name))
+
+    graph.set_entry_point(f"{_AGENT_SEQUENCE[0]}_node")
+    for current, following in zip(_AGENT_SEQUENCE, _AGENT_SEQUENCE[1:]):
+        graph.add_conditional_edges(
+            f"{current}_node",
+            _next_agent(f"{following}_node"),
         )
+    graph.add_edge(f"{_AGENT_SEQUENCE[-1]}_node", END)
+    return graph.compile()
 
-    await execute("bull", bull_agent)
-    await execute("bear", bear_agent)
-    if failures:
+
+_GRAPH = _build_graph()
+
+
+async def run_pipeline_streaming(state: Dict[str, Any], emit) -> Dict[str, Any]:
+    graph_state = dict(state)
+    graph_state["emit"] = emit
+    graph_state.pop("pipeline_error", None)
+
+    final_state = await _GRAPH.ainvoke(graph_state)
+    for key in _AGENT_SEQUENCE:
+        if key in final_state:
+            state[key] = final_state[key]
+
+    failed_agent = final_state.get("pipeline_error")
+    if failed_agent:
         raise RuntimeError(
-            "Research pipeline incomplete; required agents failed: "
-            + ", ".join(failures)
+            f"Research pipeline incomplete; required agent failed: {failed_agent}"
         )
-
-    await execute("moderator", moderator_agent)
-    if failures:
-        raise RuntimeError(
-            "Research pipeline incomplete; moderator could not produce a report."
-        )
-
     return state
